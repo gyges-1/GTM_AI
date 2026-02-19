@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -22,7 +22,7 @@ class ChatResponse(BaseModel):
     message: str
     agent_name: str | None = None
     tool_calls: list[dict[str, Any]] = []
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # ── Streaming ─────────────────────────────────────────────────────────────────
@@ -85,4 +85,4 @@ class IntegrationHealth(BaseModel):
 class HealthResponse(BaseModel):
     status: Literal["ok", "degraded", "error"]
     integrations: list[IntegrationHealth]
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
