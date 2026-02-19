@@ -13,14 +13,14 @@ from backend.integrations.hubspot import HubSpotClient
 # ── Schema classes ────────────────────────────────────────────────────────────
 
 class GetContactsInput(BaseModel):
-    limit: int = Field(default=50, ge=1, le=200, description="Max number of contacts to return")
+    limit: int = Field(default=50, ge=1, le=100, description="Max number of contacts to return (HubSpot max: 100)")
     properties: Optional[list[str]] = Field(
         default=None, description="Contact properties to retrieve"
     )
 
 
 class GetDealsInput(BaseModel):
-    limit: int = Field(default=50, ge=1, le=200, description="Max deals to return")
+    limit: int = Field(default=50, ge=1, le=100, description="Max deals to return (HubSpot max: 100)")
     pipeline_id: Optional[str] = Field(default=None, description="Filter by pipeline ID")
     stage: Optional[str] = Field(default=None, description="Filter by deal stage name")
 
@@ -30,7 +30,7 @@ class GetCampaignMetricsInput(BaseModel):
 
 
 class GetHealthScoresInput(BaseModel):
-    limit: int = Field(default=100, ge=1, le=500, description="Number of contacts to analyse")
+    limit: int = Field(default=50, ge=1, le=100, description="Number of contacts to analyse (HubSpot max: 100)")
 
 
 # ── Tool factories ────────────────────────────────────────────────────────────

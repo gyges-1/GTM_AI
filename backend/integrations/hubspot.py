@@ -5,12 +5,21 @@ from __future__ import annotations
 from typing import Any
 
 import structlog
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 from backend.config import Settings
 from backend.integrations.base import BaseIntegration
 
 logger = structlog.get_logger(__name__)
+
+
+def _is_retryable(exc: BaseException) -> bool:
+    """Only retry on 5xx / network errors, not 4xx (auth/scope/not-found)."""
+    # HubSpot SDK uses per-module ApiException classes — check by name
+    if type(exc).__name__ == "ApiException":
+        status = getattr(exc, "status", None)
+        return status is None or status >= 500
+    return not isinstance(exc, (PermissionError, ValueError))
 
 
 class HubSpotClient(BaseIntegration):
@@ -33,7 +42,7 @@ class HubSpotClient(BaseIntegration):
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, lambda: client.crm.contacts.basic_api.get_page(limit=1))
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10))
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10), retry=retry_if_exception(_is_retryable))
     async def get_contacts(
         self,
         limit: int = 100,
@@ -62,7 +71,7 @@ class HubSpotClient(BaseIntegration):
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, _fetch)
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10))
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10), retry=retry_if_exception(_is_retryable))
     async def get_deals(
         self,
         limit: int = 100,
@@ -104,7 +113,7 @@ class HubSpotClient(BaseIntegration):
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, _fetch)
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10))
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10), retry=retry_if_exception(_is_retryable))
     async def get_contact_health_scores(self, limit: int = 100) -> list[dict[str, Any]]:
         """Retrieve contact health score data."""
         import asyncio
@@ -123,7 +132,7 @@ class HubSpotClient(BaseIntegration):
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, _fetch)
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10))
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10), retry=retry_if_exception(_is_retryable))
     async def get_campaign_metrics(self) -> list[dict[str, Any]]:
         """Retrieve email campaign performance metrics."""
         import asyncio

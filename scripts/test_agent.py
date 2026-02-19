@@ -68,8 +68,9 @@ async def run_test(question: str, expected_agent: str | None = None) -> dict:
     from langgraph.checkpoint.memory import MemorySaver
     checkpointer = MemorySaver()
 
-    # Build minimal integrations (only Postgres which is always available)
+    # Build all configured integrations
     integrations: dict = {}
+
     try:
         from backend.integrations.postgres import PostgresIntegration
         pg = PostgresIntegration(settings)
@@ -78,6 +79,46 @@ async def run_test(question: str, expected_agent: str | None = None) -> dict:
         print("  Postgres: connected")
     except Exception as e:
         print(f"  Postgres: unavailable ({e})")
+
+    if settings.hubspot_configured:
+        try:
+            from backend.integrations.hubspot import HubSpotClient
+            hs = HubSpotClient(settings)
+            await hs.health_check()
+            integrations["hubspot"] = hs
+            print("  HubSpot: connected")
+        except Exception as e:
+            print(f"  HubSpot: unavailable ({e})")
+
+    if settings.salesforce_configured:
+        try:
+            from backend.integrations.salesforce import SalesforceClient
+            sf = SalesforceClient(settings)
+            await sf.health_check()
+            integrations["salesforce"] = sf
+            print("  Salesforce: connected")
+        except Exception as e:
+            print(f"  Salesforce: unavailable ({e})")
+
+    if settings.posthog_configured:
+        try:
+            from backend.integrations.posthog import PostHogClient
+            ph = PostHogClient(settings)
+            await ph.health_check()
+            integrations["posthog"] = ph
+            print("  PostHog: connected")
+        except Exception as e:
+            print(f"  PostHog: unavailable ({e})")
+
+    if settings.google_configured:
+        try:
+            from backend.integrations.google_docs import GoogleDocsClient
+            gd = GoogleDocsClient(settings)
+            await gd.health_check()
+            integrations["google_docs"] = gd
+            print("  Google Docs: connected")
+        except Exception as e:
+            print(f"  Google Docs: unavailable ({e})")
 
     graph = await build_supervisor_graph(checkpointer, integrations)
 
