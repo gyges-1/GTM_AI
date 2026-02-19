@@ -1,0 +1,76 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gtm_postgres
+    environment:
+      POSTGRES_USER: gtm_user
+      POSTGRES_PASSWORD: gtm_password
+      POSTGRES_DB: gtm_ai
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gtm_user -d gtm_ai"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  langfuse:
+    image: langfuse/langfuse:latest
+    container_name: gtm_langfuse
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://gtm_user:gtm_password@postgres:5432/gtm_ai
+      NEXTAUTH_SECRET: my-langfuse-secret-key-change-in-prod
+      NEXTAUTH_URL: http://localhost:3001
+      LANGFUSE_INIT_ORG_ID: gtm-org
+      LANGFUSE_INIT_ORG_NAME: "GTM AI"
+      LANGFUSE_INIT_PROJECT_ID: gtm-project
+      LANGFUSE_INIT_PROJECT_NAME: "GTM AI Project"
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: lf-pk-local-placeholder
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: lf-sk-local-placeholder
+      LANGFUSE_INIT_USER_EMAIL: admin@gtmai.local
+      LANGFUSE_INIT_USER_NAME: admin
+      LANGFUSE_INIT_USER_PASSWORD: adminpassword
+    ports:
+      - "3001:3000"
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: gtm_backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://gtm_user:gtm_password@postgres:5432/gtm_ai
+      POSTGRES_DSN: postgresql://gtm_user:gtm_password@postgres:5432/gtm_ai
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app/backend
+    command: uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.frontend
+    container_name: gtm_frontend
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run dev -- --host 0.0.0.0
+
+volumes:
+  postgres_data:
